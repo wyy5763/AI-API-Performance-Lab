@@ -1,12 +1,13 @@
 {
   "samples": 3,
   "errors": 0,
-  "error_rate_pct": 0,
-  "tps": 3.0,
+  "error_rate_pct": 0.0,
+  "tps": 1.01,
   "avg_ms": 478.33,
   "min_ms": 210,
   "max_ms": 980,
   "p50_ms": 245,
+  "p90_ms": 833.0,
   "p95_ms": 906.5,
   "p99_ms": 965.3
 }
