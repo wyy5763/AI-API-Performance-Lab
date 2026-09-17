@@ -1,4 +1,4 @@
-timestamp,elapsed,label,responseCode,success,bytes
+timeStamp,elapsed,label,responseCode,success,bytes
 1720000000000,210,POST AI SSE Stream,200,true,320
 1720000001000,245,POST AI SSE Stream,200,true,320
 1720000002000,980,POST AI SSE Stream,200,true,420
