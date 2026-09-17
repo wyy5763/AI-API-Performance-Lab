@@ -1,0 +1,23 @@
+name: validate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate Python
+        run: python -m compileall mock-server tools
+      - name: Validate JMeter XML
+        run: python -c "import xml.etree.ElementTree as ET; ET.parse('jmeter/ai_sse_performance_test.jmx'); print('JMX XML OK')"
+      - name: Validate analyzer with sample data
+        run: python tools/analyze_result.py examples/sample-result.jtl
+      - name: Generate sample report
+        run: python tools/generate_report.py examples/sample-result.jtl report.html
