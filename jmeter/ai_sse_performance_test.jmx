@@ -2,7 +2,7 @@
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.2">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="AI API Performance Lab" enabled="true">
-      <stringProp name="TestPlan.comments">JSON + SSE AI API performance demo</stringProp>
+      <stringProp name="TestPlan.comments">JSON + SSE AI API performance test with TTFT and stream metrics</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" enabled="true">
@@ -26,6 +26,58 @@
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
       <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="JSON POST Request" enabled="true">
+          <stringProp name="scriptLanguage">groovy</stringProp>
+          <stringProp name="script">
+import java.net.HttpURLConnection
+import java.net.URL
+
+def host = props.getProperty("host", "127.0.0.1")
+def port = props.getProperty("port", "8088")
+def path = props.getProperty("jsonPath", "/api/chat")
+def connectTimeout = Integer.parseInt(props.getProperty("connectTimeoutMs", "10000"))
+def readTimeout = Integer.parseInt(props.getProperty("readTimeoutMs", "30000"))
+def urlStr = "http://" + host + ":" + port + path
+def payload = '{"message":"请输出一段用于性能测试的普通 JSON 回答"}'
+
+def responseCode = 0
+def responseText = ""
+def errorMsg = ""
+
+try {
+    def conn = (HttpURLConnection)new URL(urlStr).openConnection()
+    conn.setRequestMethod("POST")
+    conn.setDoOutput(true)
+    conn.setConnectTimeout(connectTimeout)
+    conn.setReadTimeout(readTimeout)
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setRequestProperty("Accept", "application/json")
+    conn.setRequestProperty("Accept-Encoding", "identity")
+    conn.getOutputStream().write(payload.getBytes("UTF-8"))
+
+    responseCode = conn.getResponseCode()
+    def input = (responseCode >= 200 && responseCode < 300) ? conn.getInputStream() : conn.getErrorStream()
+    if (input != null) {
+        responseText = input.getText("UTF-8")
+        input.close()
+    }
+    conn.disconnect()
+} catch (Exception e) {
+    errorMsg = e.toString()
+    responseCode = 500
+}
+
+SampleResult.setResponseCode(String.valueOf(responseCode))
+SampleResult.setResponseData(responseText, "UTF-8")
+SampleResult.setResponseMessage("api=json" + (errorMsg ? ",error=" + errorMsg : ""))
+SampleResult.setSuccessful(responseCode >= 200 && responseCode < 300)
+          </stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="cacheKey">false</stringProp>
+        </JSR223Sampler>
+        <hashTree/>
+
         <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="SSE POST Request" enabled="true">
           <stringProp name="scriptLanguage">groovy</stringProp>
           <stringProp name="script">
@@ -34,73 +86,90 @@ import java.net.URL
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
-// 获取测试计划参数
-def host = props.get(&quot;host&quot;, &quot;127.0.0.1&quot;)
-def port = props.get(&quot;port&quot;, &quot;8088&quot;)
-def urlStr = &quot;http://${host}:${port}/api/chat/stream&quot;
-def payload = &apos;{&quot;message&quot;:&quot;请输出一段用于性能测试的流式回答&quot;}&apos;
+def host = props.getProperty("host", "127.0.0.1")
+def port = props.getProperty("port", "8088")
+def path = props.getProperty("ssePath", "/api/chat/stream")
+def connectTimeout = Integer.parseInt(props.getProperty("connectTimeoutMs", "10000"))
+def readTimeout = Integer.parseInt(props.getProperty("readTimeoutMs", "30000"))
+def urlStr = "http://" + host + ":" + port + path
+def payload = '{"message":"请输出一段用于性能测试的流式回答"}'
 
-def startTime = System.currentTimeMillis()
 def responseCode = 0
 def responseBuilder = new StringBuilder()
 def chunks = 0
 def chars = 0
 def done = false
-def errorMsg = &quot;&quot;
+def firstChunkAt = 0L
+def startNs = System.nanoTime()
+def errorMsg = ""
 
 try {
-    def url = new URL(urlStr)
-    def conn = (HttpURLConnection) url.openConnection()
-    conn.setRequestMethod(&quot;POST&quot;)
+    def conn = (HttpURLConnection)new URL(urlStr).openConnection()
+    conn.setRequestMethod("POST")
     conn.setDoOutput(true)
-    conn.setConnectTimeout(10000)
-    conn.setReadTimeout(30000)
-    conn.setRequestProperty(&quot;Content-Type&quot;, &quot;application/json&quot;)
-    conn.setRequestProperty(&quot;Accept&quot;, &quot;text/event-stream&quot;)
-    conn.setRequestProperty(&quot;Accept-Encoding&quot;, &quot;identity&quot;)
-
-    // 发送请求体
-    conn.getOutputStream().write(payload.getBytes(&quot;UTF-8&quot;))
+    conn.setConnectTimeout(connectTimeout)
+    conn.setReadTimeout(readTimeout)
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setRequestProperty("Accept", "text/event-stream")
+    conn.setRequestProperty("Accept-Encoding", "identity")
+    conn.getOutputStream().write(payload.getBytes("UTF-8"))
 
     responseCode = conn.getResponseCode()
-    def inputStream = (responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300) ? conn.getInputStream() : conn.getErrorStream()
-    def reader = new BufferedReader(new InputStreamReader(inputStream, &quot;UTF-8&quot;))
-    
-    def line
-    while ((line = reader.readLine()) != null) {
-        responseBuilder.append(line).append(&quot;\n&quot;)
-        if (line.startsWith(&quot;data: &quot;)) {
-            def data = line.substring(6)
-            if (data.trim() == &quot;[DONE]&quot;) {
-                done = true
-                break // 收到 [DONE] 立即跳出循环，主动断开连接
-            } else {
+    def inputStream = (responseCode >= 200 && responseCode < 300) ? conn.getInputStream() : conn.getErrorStream()
+    if (inputStream != null) {
+        def reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"))
+        def line
+        while ((line = reader.readLine()) != null) {
+            responseBuilder.append(line).append("\n")
+            if (line.startsWith("data: ")) {
+                def data = line.substring(6)
+                if (data.trim() == "[DONE]") {
+                    done = true
+                    break
+                }
                 chunks++
-                def matcher = data =~ /&quot;delta&quot;\s*:\s*&quot;([^&quot;]*)&quot;/
+                if (firstChunkAt == 0L) {
+                    firstChunkAt = System.nanoTime()
+                }
+                def matcher = data =~ /"delta"\s*:\s*"([^"]*)"/
                 if (matcher.find()) {
                     chars += matcher.group(1).size()
                 }
             }
         }
+        reader.close()
     }
-    reader.close()
     conn.disconnect()
 } catch (Exception e) {
     errorMsg = e.toString()
     responseCode = 500
 }
 
-// 设置 JMeter 采样结果（时间由 JMeter 自动计算，无需手动 setTime）
+def ttftMs = firstChunkAt > 0L ? (firstChunkAt - startNs) / 1000000.0 : -1.0
+def ttftText = String.format(java.util.Locale.US, "%.2f", ttftMs)
+
+vars.put("sse_ttft_ms", ttftText)
+vars.put("sse_chunk_count", String.valueOf(chunks))
+vars.put("sse_output_chars", String.valueOf(chars))
+vars.put("sse_done", String.valueOf(done))
+
 SampleResult.setResponseCode(String.valueOf(responseCode))
-SampleResult.setResponseData(responseBuilder.toString(), &quot;UTF-8&quot;)
-SampleResult.setResponseMessage(&quot;sse_chunks=&quot; + chunks + &quot;,sse_chars=&quot; + chars + &quot;,done=&quot; + done + (errorMsg ? &quot;,error=&quot; + errorMsg : &quot;&quot;))
-SampleResult.setSuccessful(responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300 &amp;&amp; done)
+SampleResult.setResponseData(responseBuilder.toString(), "UTF-8")
+SampleResult.setResponseMessage(
+    "api=sse,ttft_ms=" + ttftText +
+    ",chunks=" + chunks +
+    ",chars=" + chars +
+    ",done=" + done +
+    (errorMsg ? ",error=" + errorMsg : "")
+)
+SampleResult.setSuccessful(responseCode >= 200 && responseCode < 300 && done && chunks > 0)
           </stringProp>
           <stringProp name="parameters"></stringProp>
           <stringProp name="filename"></stringProp>
           <stringProp name="cacheKey">false</stringProp>
         </JSR223Sampler>
         <hashTree/>
+
         <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="汇总报告" enabled="true">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
