@@ -10,6 +10,7 @@
 - 参数化并发数、Ramp-up、循环次数、Host、Port、超时
 - SSE TTFT（压测客户端观测到第一个 `data:` 事件的时间）
 - SSE Chunk 数量、输出字符数、完成率
+- AI API 异常分类：连接超时、响应超时、连接拒绝、DNS、HTTP 4xx/5xx、SSE 未首块、SSE 中断、SSE 未完成
 - JTL 结果统计：TPS、错误率、Average、P50、P90、P95、P99
 - JSON / SSE 场景独立统计
 - 单次 HTML 性能报告
@@ -137,6 +138,25 @@ results/
 ```bash
 python tools/aggregate_ladder.py results/ladder
 ```
+
+## 异常分类体系
+
+测试结果中的失败不再只显示为“Error”，而是记录 `error_type`：
+
+| error_type | 含义 |
+|---|---|
+| `CONNECT_TIMEOUT` | 建立连接阶段超时 |
+| `READ_TIMEOUT` | 已建立连接，但读取响应超时 |
+| `CONNECTION_REFUSED` | 目标端口拒绝连接 |
+| `DNS_ERROR` | 域名解析失败 |
+| `NETWORK_ERROR` | 其他网络异常 |
+| `HTTP_4XX` | 服务端返回 4xx |
+| `HTTP_5XX` | 服务端返回 5xx |
+| `SSE_NO_FIRST_CHUNK` | SSE 返回成功，但没有收到第一个数据块 |
+| `SSE_INCOMPLETE` | SSE 收到数据，但没有收到 `[DONE]` |
+| `SSE_INTERRUPTED` | SSE 已开始输出，中途发生网络/读取异常 |
+
+JMeter sampler 使用 `598` 表示 SSE 流协议异常、`599` 表示客户端网络/超时异常；真实 HTTP 4xx/5xx 状态码仍保留。这样可以在性能测试中区分“服务端业务错误”和“客户端网络/超时问题”。
 
 ## 当前指标体系
 
