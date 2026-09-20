@@ -28,37 +28,36 @@
       <hashTree>
         <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="JSON POST Request" enabled="true">
           <stringProp name="scriptLanguage">groovy</stringProp>
-          <stringProp name="script">
-import java.net.HttpURLConnection
+          <stringProp name="script">import java.net.HttpURLConnection
 import java.net.URL
 
-def host = props.getProperty("host", "127.0.0.1")
-def port = props.getProperty("port", "8088")
-def path = props.getProperty("jsonPath", "/api/chat")
-def connectTimeout = Integer.parseInt(props.getProperty("connectTimeoutMs", "10000"))
-def readTimeout = Integer.parseInt(props.getProperty("readTimeoutMs", "30000"))
-def urlStr = "http://" + host + ":" + port + path
-def payload = '{"message":"请输出一段用于性能测试的普通 JSON 回答"}'
+def host = props.getProperty(&quot;host&quot;, &quot;127.0.0.1&quot;)
+def port = props.getProperty(&quot;port&quot;, &quot;8088&quot;)
+def path = props.getProperty(&quot;jsonPath&quot;, &quot;/api/chat&quot;)
+def connectTimeout = Integer.parseInt(props.getProperty(&quot;connectTimeoutMs&quot;, &quot;10000&quot;))
+def readTimeout = Integer.parseInt(props.getProperty(&quot;readTimeoutMs&quot;, &quot;30000&quot;))
+def urlStr = &quot;http://&quot; + host + &quot;:&quot; + port + path
+def payload = &apos;{&quot;message&quot;:&quot;请输出一段用于性能测试的普通 JSON 回答&quot;}&apos;
 
 def responseCode = 0
-def responseText = ""
-def errorMsg = ""
+def responseText = &quot;&quot;
+def errorMsg = &quot;&quot;
 
 try {
     def conn = (HttpURLConnection)new URL(urlStr).openConnection()
-    conn.setRequestMethod("POST")
+    conn.setRequestMethod(&quot;POST&quot;)
     conn.setDoOutput(true)
     conn.setConnectTimeout(connectTimeout)
     conn.setReadTimeout(readTimeout)
-    conn.setRequestProperty("Content-Type", "application/json")
-    conn.setRequestProperty("Accept", "application/json")
-    conn.setRequestProperty("Accept-Encoding", "identity")
-    conn.getOutputStream().write(payload.getBytes("UTF-8"))
+    conn.setRequestProperty(&quot;Content-Type&quot;, &quot;application/json&quot;)
+    conn.setRequestProperty(&quot;Accept&quot;, &quot;application/json&quot;)
+    conn.setRequestProperty(&quot;Accept-Encoding&quot;, &quot;identity&quot;)
+    conn.getOutputStream().write(payload.getBytes(&quot;UTF-8&quot;))
 
     responseCode = conn.getResponseCode()
-    def input = (responseCode >= 200 && responseCode < 300) ? conn.getInputStream() : conn.getErrorStream()
+    def input = (responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300) ? conn.getInputStream() : conn.getErrorStream()
     if (input != null) {
-        responseText = input.getText("UTF-8")
+        responseText = input.getText(&quot;UTF-8&quot;)
         input.close()
     }
     conn.disconnect()
@@ -68,10 +67,9 @@ try {
 }
 
 SampleResult.setResponseCode(String.valueOf(responseCode))
-SampleResult.setResponseData(responseText, "UTF-8")
-SampleResult.setResponseMessage("api=json" + (errorMsg ? ",error=" + errorMsg : ""))
-SampleResult.setSuccessful(responseCode >= 200 && responseCode < 300)
-          </stringProp>
+SampleResult.setResponseData(responseText, &quot;UTF-8&quot;)
+SampleResult.setResponseMessage(&quot;api=json&quot; + (errorMsg ? &quot;,error=&quot; + errorMsg : &quot;&quot;))
+SampleResult.setSuccessful(responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300)</stringProp>
           <stringProp name="parameters"></stringProp>
           <stringProp name="filename"></stringProp>
           <stringProp name="cacheKey">false</stringProp>
@@ -80,19 +78,18 @@ SampleResult.setSuccessful(responseCode >= 200 && responseCode < 300)
 
         <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="SSE POST Request" enabled="true">
           <stringProp name="scriptLanguage">groovy</stringProp>
-          <stringProp name="script">
-import java.net.HttpURLConnection
+          <stringProp name="script">import java.net.HttpURLConnection
 import java.net.URL
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
-def host = props.getProperty("host", "127.0.0.1")
-def port = props.getProperty("port", "8088")
-def path = props.getProperty("ssePath", "/api/chat/stream")
-def connectTimeout = Integer.parseInt(props.getProperty("connectTimeoutMs", "10000"))
-def readTimeout = Integer.parseInt(props.getProperty("readTimeoutMs", "30000"))
-def urlStr = "http://" + host + ":" + port + path
-def payload = '{"message":"请输出一段用于性能测试的流式回答"}'
+def host = props.getProperty(&quot;host&quot;, &quot;127.0.0.1&quot;)
+def port = props.getProperty(&quot;port&quot;, &quot;8088&quot;)
+def path = props.getProperty(&quot;ssePath&quot;, &quot;/api/chat/stream&quot;)
+def connectTimeout = Integer.parseInt(props.getProperty(&quot;connectTimeoutMs&quot;, &quot;10000&quot;))
+def readTimeout = Integer.parseInt(props.getProperty(&quot;readTimeoutMs&quot;, &quot;30000&quot;))
+def urlStr = &quot;http://&quot; + host + &quot;:&quot; + port + path
+def payload = &apos;{&quot;message&quot;:&quot;请输出一段用于性能测试的流式回答&quot;}&apos;
 
 def responseCode = 0
 def responseBuilder = new StringBuilder()
@@ -101,29 +98,29 @@ def chars = 0
 def done = false
 def firstChunkAt = 0L
 def startNs = System.nanoTime()
-def errorMsg = ""
+def errorMsg = &quot;&quot;
 
 try {
     def conn = (HttpURLConnection)new URL(urlStr).openConnection()
-    conn.setRequestMethod("POST")
+    conn.setRequestMethod(&quot;POST&quot;)
     conn.setDoOutput(true)
     conn.setConnectTimeout(connectTimeout)
     conn.setReadTimeout(readTimeout)
-    conn.setRequestProperty("Content-Type", "application/json")
-    conn.setRequestProperty("Accept", "text/event-stream")
-    conn.setRequestProperty("Accept-Encoding", "identity")
-    conn.getOutputStream().write(payload.getBytes("UTF-8"))
+    conn.setRequestProperty(&quot;Content-Type&quot;, &quot;application/json&quot;)
+    conn.setRequestProperty(&quot;Accept&quot;, &quot;text/event-stream&quot;)
+    conn.setRequestProperty(&quot;Accept-Encoding&quot;, &quot;identity&quot;)
+    conn.getOutputStream().write(payload.getBytes(&quot;UTF-8&quot;))
 
     responseCode = conn.getResponseCode()
-    def inputStream = (responseCode >= 200 && responseCode < 300) ? conn.getInputStream() : conn.getErrorStream()
+    def inputStream = (responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300) ? conn.getInputStream() : conn.getErrorStream()
     if (inputStream != null) {
-        def reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"))
+        def reader = new BufferedReader(new InputStreamReader(inputStream, &quot;UTF-8&quot;))
         def line
         while ((line = reader.readLine()) != null) {
-            responseBuilder.append(line).append("\n")
-            if (line.startsWith("data: ")) {
+            responseBuilder.append(line).append(&quot;\n&quot;)
+            if (line.startsWith(&quot;data: &quot;)) {
                 def data = line.substring(6)
-                if (data.trim() == "[DONE]") {
+                if (data.trim() == &quot;[DONE]&quot;) {
                     done = true
                     break
                 }
@@ -131,7 +128,7 @@ try {
                 if (firstChunkAt == 0L) {
                     firstChunkAt = System.nanoTime()
                 }
-                def matcher = data =~ /"delta"\s*:\s*"([^"]*)"/
+                def matcher = data =~ /&quot;delta&quot;\s*:\s*&quot;([^&quot;]*)&quot;/
                 if (matcher.find()) {
                     chars += matcher.group(1).size()
                 }
@@ -145,25 +142,24 @@ try {
     responseCode = 500
 }
 
-def ttftMs = firstChunkAt > 0L ? (firstChunkAt - startNs) / 1000000.0 : -1.0
-def ttftText = String.format(java.util.Locale.US, "%.2f", ttftMs)
+def ttftMs = firstChunkAt &gt; 0L ? (firstChunkAt - startNs) / 1000000.0 : -1.0
+def ttftText = String.format(java.util.Locale.US, &quot;%.2f&quot;, ttftMs)
 
-vars.put("sse_ttft_ms", ttftText)
-vars.put("sse_chunk_count", String.valueOf(chunks))
-vars.put("sse_output_chars", String.valueOf(chars))
-vars.put("sse_done", String.valueOf(done))
+vars.put(&quot;sse_ttft_ms&quot;, ttftText)
+vars.put(&quot;sse_chunk_count&quot;, String.valueOf(chunks))
+vars.put(&quot;sse_output_chars&quot;, String.valueOf(chars))
+vars.put(&quot;sse_done&quot;, String.valueOf(done))
 
 SampleResult.setResponseCode(String.valueOf(responseCode))
-SampleResult.setResponseData(responseBuilder.toString(), "UTF-8")
+SampleResult.setResponseData(responseBuilder.toString(), &quot;UTF-8&quot;)
 SampleResult.setResponseMessage(
-    "api=sse,ttft_ms=" + ttftText +
-    ",chunks=" + chunks +
-    ",chars=" + chars +
-    ",done=" + done +
-    (errorMsg ? ",error=" + errorMsg : "")
+    &quot;api=sse,ttft_ms=&quot; + ttftText +
+    &quot;,chunks=&quot; + chunks +
+    &quot;,chars=&quot; + chars +
+    &quot;,done=&quot; + done +
+    (errorMsg ? &quot;,error=&quot; + errorMsg : &quot;&quot;)
 )
-SampleResult.setSuccessful(responseCode >= 200 && responseCode < 300 && done && chunks > 0)
-          </stringProp>
+SampleResult.setSuccessful(responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300 &amp;&amp; done &amp;&amp; chunks &gt; 0)</stringProp>
           <stringProp name="parameters"></stringProp>
           <stringProp name="filename"></stringProp>
           <stringProp name="cacheKey">false</stringProp>
