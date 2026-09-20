@@ -188,7 +188,7 @@ Mock Server 支持的故障参数：
 | `HTTP_5XX` | 服务端返回 5xx |
 | `SSE_NO_FIRST_CHUNK` | SSE 返回成功，但没有收到第一个数据块 |
 | `SSE_INCOMPLETE` | SSE 收到数据，但没有收到 `[DONE]` |
-| `SSE_INTERRUPTED` | SSE 已开始输出，中途发生网络/读取异常 |
+| `SSE_READ_TIMEOUT` | SSE 已开始读取，但后续读取发生超时 |\n| `SSE_INTERRUPTED` | SSE 已开始输出，中途发生其他网络/读取异常 |
 
 JMeter sampler 使用 `598` 表示 SSE 流协议异常、`599` 表示客户端网络/超时异常；真实 HTTP 4xx/5xx 状态码仍保留。这样可以在性能测试中区分“服务端业务错误”和“客户端网络/超时问题”。
 
