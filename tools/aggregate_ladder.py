@@ -63,12 +63,16 @@ def analyze_jtl(path):
     json_rows = [r for r in rows if "JSON" in r.get("label", "").upper()]
     sse_rows = [r for r in rows if "SSE" in r.get("label", "").upper()]
 
+    error_types = {}
     sse_ttft = []
     sse_chunks = []
     sse_chars = []
     sse_done = 0
     for row in sse_rows:
         message = row.get("responseMessage", "")
+        error_type = message_metric(message, "error_type", "NONE")
+        if error_type and error_type != "NONE":
+            error_types[error_type] = error_types.get(error_type, 0) + 1
         ttft = number(message_metric(message, "ttft_ms"), -1)
         chunks = number(message_metric(message, "chunks"), -1)
         chars = number(message_metric(message, "chars"), -1)
@@ -102,6 +106,8 @@ def analyze_jtl(path):
         "sse_chunks_avg": round(sum(sse_chunks) / len(sse_chunks), 2) if sse_chunks else 0,
         "sse_chars_avg": round(sum(sse_chars) / len(sse_chars), 2) if sse_chars else 0,
         "sse_done_rate_pct": round(sse_done / len(sse_rows) * 100.0, 2) if sse_rows else 0,
+        "error_types": error_types,
+        "timeout_count": error_types.get("CONNECT_TIMEOUT", 0) + error_types.get("READ_TIMEOUT", 0),
         "duration_s": round(duration_s, 2),
     }
 
@@ -120,6 +126,7 @@ def write_csv(results, output):
         "sse_avg_ms", "sse_p95_ms", "sse_error_rate_pct",
         "sse_ttft_avg_ms", "sse_ttft_p95_ms",
         "sse_chunks_avg", "sse_chars_avg", "sse_done_rate_pct",
+        "timeout_count", "http_4xx_count", "http_5xx_count", "sse_protocol_error_count",
         "duration_s",
     ]
     with open(output, "w", newline="", encoding="utf-8-sig") as f:
@@ -134,6 +141,10 @@ def write_csv(results, output):
                 "sse_avg_ms": r["sse"]["avg_ms"],
                 "sse_p95_ms": r["sse"]["p95_ms"],
                 "sse_error_rate_pct": r["sse"]["error_rate_pct"],
+                "timeout_count": r["timeout_count"],
+                "http_4xx_count": r["error_types"].get("HTTP_4XX", 0),
+                "http_5xx_count": r["error_types"].get("HTTP_5XX", 0),
+                "sse_protocol_error_count": sum(r["error_types"].get(k, 0) for k in ("SSE_NO_FIRST_CHUNK", "SSE_INCOMPLETE", "SSE_INTERRUPTED")),
             })
             writer.writerow(row)
 
@@ -154,6 +165,9 @@ def write_html(results, output):
         f"<td>{esc(r['sse_chunks_avg'])}</td>"
         f"<td>{esc(r['sse_chars_avg'])}</td>"
         f"<td>{esc(r['sse_error_rate_pct'])}%</td>"
+        f"<td>{esc(r['timeout_count'])}</td>"
+        f"<td>{esc(r['error_types'].get('HTTP_4XX', 0))}</td>"
+        f"<td>{esc(r['error_types'].get('HTTP_5XX', 0))}</td>"
         "</tr>"
         for r in results
     )
@@ -220,7 +234,7 @@ canvas{{width:100%;height:340px;border:1px solid #eee;border-radius:8px}}
 <th>JSON Avg</th><th>JSON P95</th>
 <th>SSE Avg</th><th>SSE P95</th>
 <th>SSE TTFT Avg</th><th>SSE TTFT P95</th>
-<th>Chunks Avg</th><th>Chars Avg</th><th>SSE Error</th>
+<th>Chunks Avg</th><th>Chars Avg</th><th>SSE Error</th><th>Timeouts</th><th>HTTP 4xx</th><th>HTTP 5xx</th>
 </tr></thead>
 <tbody>{rows}</tbody>
 </table>
