@@ -1,0 +1,6 @@
+timeStamp,elapsed,label,responseCode,responseMessage,success,bytes
+1720000000000,210,JSON POST Request,200,"api=json,error_type=NONE",true,320
+1720000001000,245,SSE POST Request,200,"api=sse,error_type=NONE,ttft_ms=190.20,chunks=3,chars=36,done=true",true,320
+1720000002000,10050,JSON POST Request,599,"api=json,error_type=READ_TIMEOUT,error=java.net.SocketTimeoutException",false,0
+1720000003000,500,SSE POST Request,598,"api=sse,error_type=SSE_INCOMPLETE,ttft_ms=180.10,chunks=2,chars=24,done=false",false,180
+1720000004000,120,SSE POST Request,503,"api=sse,error_type=HTTP_5XX,ttft_ms=-1.00,chunks=0,chars=0,done=false",false,90
