@@ -59,14 +59,18 @@ def main(jtl, out):
     groups = defaultdict(list)
     ttft = []
     chunks = []
+    error_types = defaultdict(int)
     chars = []
     done = 0
 
     for row in rows:
         label = row.get("label", "")
         groups[label].append(row)
+        message = row.get("responseMessage", "")
+        et = metric(message, "error_type", "NONE")
+        if et and et != "NONE":
+            error_types[et] += 1
         if "SSE" in label.upper():
-            message = row.get("responseMessage", "")
             t = num(metric(message, "ttft_ms"), -1)
             if t >= 0:
                 ttft.append(t)
@@ -109,6 +113,22 @@ def main(jtl, out):
             "</tr>"
         )
 
+    error_html = ""
+    if error_types:
+        error_rows = "".join(
+            f"<tr><td>{html.escape(k)}</td><td>{v}</td></tr>"
+            for k, v in sorted(error_types.items(), key=lambda item: (-item[1], item[0]))
+        )
+        error_html = f"""
+<section>
+<h2>异常分类</h2>
+<table>
+<tr><th>异常类型</th><th>次数</th></tr>
+{error_rows}
+</table>
+<p class="muted">分类来自 JMeter sampler 的 error_type。598 表示 SSE 协议/流结束异常；599 表示客户端网络或超时异常；HTTP 4xx/5xx 保留服务端 HTTP 状态码。</p>
+</section>
+"""
     sse_html = ""
     if ttft:
         sse_html = f"""
@@ -175,6 +195,8 @@ th{{background:#f0f2f5}}
 </section>
 
 {sse_html}
+
+{error_html}
 
 <section>
 <h2>Recent Samples</h2>
