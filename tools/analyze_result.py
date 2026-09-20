@@ -66,6 +66,7 @@ def main(path):
     duration = max((end - start) / 1000, 0.001)
 
     by_label = defaultdict(list)
+    error_types = Counter()
     sse_ttft = []
     sse_chunks = []
     sse_chars = []
@@ -74,6 +75,9 @@ def main(path):
     for row in rows:
         label = row.get("label", "")
         by_label[label].append(row)
+        error_type = message_metric(row.get("responseMessage", ""), "error_type", "NONE")
+        if error_type and error_type != "NONE":
+            error_types[error_type] += 1
 
         if "SSE" in label.upper():
             message = row.get("responseMessage", row.get("responseMessage", ""))
@@ -103,6 +107,11 @@ def main(path):
         "p95_ms": round(pct(times, 95), 2),
         "p99_ms": round(pct(times, 99), 2),
         "labels": {label: analyze_label(items) for label, items in by_label.items()},
+        "error_types": dict(error_types),
+        "timeout_count": error_types.get("CONNECT_TIMEOUT", 0) + error_types.get("READ_TIMEOUT", 0),
+        "http_4xx_count": error_types.get("HTTP_4XX", 0),
+        "http_5xx_count": error_types.get("HTTP_5XX", 0),
+        "sse_protocol_error_count": sum(error_types.get(k, 0) for k in ("SSE_NO_FIRST_CHUNK", "SSE_INCOMPLETE", "SSE_INTERRUPTED")),
     }
 
     if sse_ttft:
