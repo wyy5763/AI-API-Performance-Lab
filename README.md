@@ -139,6 +139,40 @@ results/
 python tools/aggregate_ladder.py results/ladder
 ```
 
+### 异常分类快速验证
+
+Mock Server 支持故障注入，可以直接验证异常分类：
+
+```bat
+:: JSON 500
+jmeter -n -t jmeter\ai_sse_performance_test.jmx -q jmeter\user.properties -JjsonPath=/api/chat?status=500 -Jloops=1 -Jthreads=1 -l error-500.jtl
+
+:: JSON 读取超时（默认 readTimeout=30000ms）
+jmeter -n -t jmeter\ai_sse_performance_test.jmx -q jmeter\user.properties -JjsonPath=/api/chat?delay_ms=35000 -Jloops=1 -Jthreads=1 -l error-timeout.jtl
+
+:: SSE 没有第一个数据块
+jmeter -n -t jmeter\ai_sse_performance_test.jmx -q jmeter\user.properties -JssePath=/api/chat/stream?mode=empty -Jloops=1 -Jthreads=1 -l error-sse-empty.jtl
+
+:: SSE 中途没有 [DONE]
+jmeter -n -t jmeter\ai_sse_performance_test.jmx -q jmeter\user.properties -JssePath=/api/chat/stream?mode=incomplete -Jloops=1 -Jthreads=1 -l error-sse-incomplete.jtl
+```
+
+然后：
+
+```bash
+python tools/analyze_result.py error-500.jtl
+python tools/generate_report.py error-500.jtl error-500.html
+```
+
+Mock Server 支持的故障参数：
+
+- `status=500`：模拟 HTTP 5xx
+- `delay_ms=35000`：模拟响应读取超时
+- `mode=empty`：SSE 无首块
+- `mode=incomplete`：SSE 有输出但不发送 `[DONE]`
+- `ttft_ms=...`：控制 SSE 首块延迟
+- `interval_ms=...`：控制 SSE chunk 间隔
+
 ## 异常分类体系
 
 测试结果中的失败不再只显示为“Error”，而是记录 `error_type`：
