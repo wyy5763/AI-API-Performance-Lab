@@ -30,6 +30,9 @@
           <stringProp name="scriptLanguage">groovy</stringProp>
           <stringProp name="script">import java.net.HttpURLConnection
 import java.net.URL
+import java.net.SocketTimeoutException
+import java.net.ConnectException
+import java.net.UnknownHostException
 
 def host = props.getProperty(&quot;host&quot;, &quot;127.0.0.1&quot;)
 def port = props.getProperty(&quot;port&quot;, &quot;8088&quot;)
@@ -42,6 +45,17 @@ def payload = &apos;{&quot;message&quot;:&quot;请输出一段用于性能测试
 def responseCode = 0
 def responseText = &quot;&quot;
 def errorMsg = &quot;&quot;
+def errorType = &quot;NONE&quot;
+
+def classifyException = { Exception e -&gt;
+    if (e instanceof SocketTimeoutException) {
+        def m = (e.message ?: &quot;&quot;).toLowerCase()
+        return m.contains(&quot;connect&quot;) ? &quot;CONNECT_TIMEOUT&quot; : &quot;READ_TIMEOUT&quot;
+    }
+    if (e instanceof ConnectException) return &quot;CONNECTION_REFUSED&quot;
+    if (e instanceof UnknownHostException) return &quot;DNS_ERROR&quot;
+    return &quot;NETWORK_ERROR&quot;
+}
 
 try {
     def conn = (HttpURLConnection)new URL(urlStr).openConnection()
@@ -55,6 +69,10 @@ try {
     conn.getOutputStream().write(payload.getBytes(&quot;UTF-8&quot;))
 
     responseCode = conn.getResponseCode()
+    if (responseCode &gt;= 400 &amp;&amp; responseCode &lt; 500) errorType = &quot;HTTP_4XX&quot;
+    else if (responseCode &gt;= 500) errorType = &quot;HTTP_5XX&quot;
+    else if (responseCode &lt; 200 || responseCode &gt;= 300) errorType = &quot;HTTP_ERROR&quot;
+
     def input = (responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300) ? conn.getInputStream() : conn.getErrorStream()
     if (input != null) {
         responseText = input.getText(&quot;UTF-8&quot;)
@@ -63,13 +81,18 @@ try {
     conn.disconnect()
 } catch (Exception e) {
     errorMsg = e.toString()
-    responseCode = 500
+    errorType = classifyException(e)
+    responseCode = 599
 }
 
+def success = responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300
 SampleResult.setResponseCode(String.valueOf(responseCode))
 SampleResult.setResponseData(responseText, &quot;UTF-8&quot;)
-SampleResult.setResponseMessage(&quot;api=json&quot; + (errorMsg ? &quot;,error=&quot; + errorMsg : &quot;&quot;))
-SampleResult.setSuccessful(responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300)</stringProp>
+SampleResult.setResponseMessage(
+    &quot;api=json,error_type=&quot; + errorType +
+    (errorMsg ? &quot;,error=&quot; + errorMsg : &quot;&quot;)
+)
+SampleResult.setSuccessful(success)</stringProp>
           <stringProp name="parameters"></stringProp>
           <stringProp name="filename"></stringProp>
           <stringProp name="cacheKey">false</stringProp>
@@ -80,6 +103,9 @@ SampleResult.setSuccessful(responseCode &gt;= 200 &amp;&amp; responseCode &lt; 3
           <stringProp name="scriptLanguage">groovy</stringProp>
           <stringProp name="script">import java.net.HttpURLConnection
 import java.net.URL
+import java.net.SocketTimeoutException
+import java.net.ConnectException
+import java.net.UnknownHostException
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -99,6 +125,17 @@ def done = false
 def firstChunkAt = 0L
 def startNs = System.nanoTime()
 def errorMsg = &quot;&quot;
+def errorType = &quot;NONE&quot;
+
+def classifyException = { Exception e -&gt;
+    if (e instanceof SocketTimeoutException) {
+        def m = (e.message ?: &quot;&quot;).toLowerCase()
+        return m.contains(&quot;connect&quot;) ? &quot;CONNECT_TIMEOUT&quot; : &quot;READ_TIMEOUT&quot;
+    }
+    if (e instanceof ConnectException) return &quot;CONNECTION_REFUSED&quot;
+    if (e instanceof UnknownHostException) return &quot;DNS_ERROR&quot;
+    return &quot;NETWORK_ERROR&quot;
+}
 
 try {
     def conn = (HttpURLConnection)new URL(urlStr).openConnection()
@@ -112,6 +149,10 @@ try {
     conn.getOutputStream().write(payload.getBytes(&quot;UTF-8&quot;))
 
     responseCode = conn.getResponseCode()
+    if (responseCode &gt;= 400 &amp;&amp; responseCode &lt; 500) errorType = &quot;HTTP_4XX&quot;
+    else if (responseCode &gt;= 500) errorType = &quot;HTTP_5XX&quot;
+    else if (responseCode &lt; 200 || responseCode &gt;= 300) errorType = &quot;HTTP_ERROR&quot;
+
     def inputStream = (responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300) ? conn.getInputStream() : conn.getErrorStream()
     if (inputStream != null) {
         def reader = new BufferedReader(new InputStreamReader(inputStream, &quot;UTF-8&quot;))
@@ -125,41 +166,52 @@ try {
                     break
                 }
                 chunks++
-                if (firstChunkAt == 0L) {
-                    firstChunkAt = System.nanoTime()
-                }
+                if (firstChunkAt == 0L) firstChunkAt = System.nanoTime()
                 def matcher = data =~ /&quot;delta&quot;\s*:\s*&quot;([^&quot;]*)&quot;/
-                if (matcher.find()) {
-                    chars += matcher.group(1).size()
-                }
+                if (matcher.find()) chars += matcher.group(1).size()
             }
         }
         reader.close()
     }
     conn.disconnect()
+
+    if (responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300) {
+        if (chunks == 0) {
+            errorType = &quot;SSE_NO_FIRST_CHUNK&quot;
+            responseCode = 598
+        } else if (!done) {
+            errorType = &quot;SSE_INCOMPLETE&quot;
+            responseCode = 598
+        }
+    }
 } catch (Exception e) {
     errorMsg = e.toString()
-    responseCode = 500
+    def networkType = classifyException(e)
+    errorType = chunks &gt; 0 ? &quot;SSE_INTERRUPTED&quot; : networkType
+    responseCode = 599
 }
 
 def ttftMs = firstChunkAt &gt; 0L ? (firstChunkAt - startNs) / 1000000.0 : -1.0
 def ttftText = String.format(java.util.Locale.US, &quot;%.2f&quot;, ttftMs)
+def success = responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300 &amp;&amp; done &amp;&amp; chunks &gt; 0
 
 vars.put(&quot;sse_ttft_ms&quot;, ttftText)
 vars.put(&quot;sse_chunk_count&quot;, String.valueOf(chunks))
 vars.put(&quot;sse_output_chars&quot;, String.valueOf(chars))
 vars.put(&quot;sse_done&quot;, String.valueOf(done))
+vars.put(&quot;error_type&quot;, errorType)
 
 SampleResult.setResponseCode(String.valueOf(responseCode))
 SampleResult.setResponseData(responseBuilder.toString(), &quot;UTF-8&quot;)
 SampleResult.setResponseMessage(
-    &quot;api=sse,ttft_ms=&quot; + ttftText +
+    &quot;api=sse,error_type=&quot; + errorType +
+    &quot;,ttft_ms=&quot; + ttftText +
     &quot;,chunks=&quot; + chunks +
     &quot;,chars=&quot; + chars +
     &quot;,done=&quot; + done +
     (errorMsg ? &quot;,error=&quot; + errorMsg : &quot;&quot;)
 )
-SampleResult.setSuccessful(responseCode &gt;= 200 &amp;&amp; responseCode &lt; 300 &amp;&amp; done &amp;&amp; chunks &gt; 0)</stringProp>
+SampleResult.setSuccessful(success)</stringProp>
           <stringProp name="parameters"></stringProp>
           <stringProp name="filename"></stringProp>
           <stringProp name="cacheKey">false</stringProp>
