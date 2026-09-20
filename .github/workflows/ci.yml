@@ -19,5 +19,11 @@ jobs:
         run: python -c "import xml.etree.ElementTree as ET; ET.parse('jmeter/ai_sse_performance_test.jmx'); print('JMX XML OK')"
       - name: Validate analyzer with sample data
         run: python tools/analyze_result.py examples/sample-result.jtl
+      - name: Validate error classification
+        run: python tools/analyze_result.py examples/sample-error-result.jtl
+
       - name: Generate sample report
         run: python tools/generate_report.py examples/sample-result.jtl report.html
+
+      - name: Generate error classification report
+        run: python tools/generate_report.py examples/sample-error-result.jtl error-report.html
