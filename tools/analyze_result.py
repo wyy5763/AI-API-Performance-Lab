@@ -108,7 +108,7 @@ def main(path):
         "p99_ms": round(pct(times, 99), 2),
         "labels": {label: analyze_label(items) for label, items in by_label.items()},
         "error_types": dict(error_types),
-        "timeout_count": error_types.get("CONNECT_TIMEOUT", 0) + error_types.get("READ_TIMEOUT", 0),
+        "timeout_count": error_types.get("CONNECT_TIMEOUT", 0) + error_types.get("READ_TIMEOUT", 0) + error_types.get("SSE_READ_TIMEOUT", 0),
         "http_4xx_count": error_types.get("HTTP_4XX", 0),
         "http_5xx_count": error_types.get("HTTP_5XX", 0),
         "sse_protocol_error_count": sum(error_types.get(k, 0) for k in ("SSE_NO_FIRST_CHUNK", "SSE_INCOMPLETE", "SSE_INTERRUPTED")),
